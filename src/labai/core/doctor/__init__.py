@@ -9,11 +9,10 @@ import mlx.core as mx
 from labai.core import config
 
 
-def _check_path(name: str, value: str | None) -> tuple[bool, str]:
-    if not value:
+def _check_path(name: str, path: Path | None) -> tuple[bool, str]:
+    if path is None:
         return False, f"{name}: not configured"
 
-    path = Path(value).expanduser()
     if not path.exists():
         return False, f"{name}: missing ({path})"
 
@@ -21,12 +20,13 @@ def _check_path(name: str, value: str | None) -> tuple[bool, str]:
 
 
 def doctor() -> int:
+    configuration = config.load_config()
     checks: list[tuple[bool, str]] = []
 
     checks.append((sys.version_info >= (3, 13), f"Python: {platform.python_version()}"))
     checks.append((mx.default_device().type == mx.gpu, f"MLX device: {mx.default_device()}"))
-    checks.append(_check_path(config.DATA_DIR_ENV_VAR, config.get_data_dir()))
-    checks.append(_check_path(config.MODELS_DIR_ENV_VAR, config.get_models_dir()))
+    checks.append(_check_path(config.DATA_DIR_ENV_VAR, configuration.data_dir))
+    checks.append(_check_path(config.MODELS_DIR_ENV_VAR, configuration.models_dir))
 
     print("LabAI doctor\n")
 
