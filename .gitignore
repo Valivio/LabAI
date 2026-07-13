@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Private data
+data/
+private/
+books/
+documents/
+processed/
+indexes/
+embeddings/
+databases/
+logs/
+
+# Models
+models/
+*.safetensors
+*.gguf
+*.bin
+*.onnx
+*.mlpackage
+*.mlmodel
+
+# Documents and databases
+*.pdf
+*.epub
+*.mobi
+*.docx
+*.sqlite
+*.sqlite3
+*.db
+*.faiss
+*.index
+
+# Generated outputs
+outputs/
+results/
+cache/
+tmp/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
