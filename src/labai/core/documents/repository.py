@@ -5,8 +5,10 @@ import json
 from pathlib import Path
 
 from labai.core.documents import Document, SourceKind
+from labai.core.documents.books import Book, render_book_markdown
 
 WORKFLOW_VERSION = "1"
+BOOK_WORKFLOW_VERSION = "epub-1"
 
 _SUPPORTED_SOURCE_FORMATS = frozenset({"md", "txt"})
 
@@ -34,7 +36,7 @@ def _validate_existing_entry(
     source_filename: str,
     source_bytes: bytes,
     working_bytes: bytes,
-    expected_metadata: dict[str, str],
+    expected_metadata: dict[str, object],
 ) -> None:
     source_path = document_directory / "source" / source_filename
     working_path = document_directory / "working" / "content.md"
@@ -103,3 +105,71 @@ def store_document(document: Document, repository_root: str | Path) -> Path:
     )
 
     return document_directory
+
+
+def _book_metadata(book: Book) -> dict[str, object]:
+    return {
+        "authors": list(book.authors),
+        "collection": book.collection,
+        "content_hash": book.content_hash,
+        "document_id": book.book_id,
+        "ingested_at": book.ingested_at.isoformat(),
+        "language": book.language,
+        "original_source_filename": book.original_source_path.name,
+        "publication_date": book.publication_date,
+        "publisher": book.publisher,
+        "section_count": len(book.sections),
+        "source_format": book.source_format,
+        "source_identifier": book.source_identifier,
+        "source_kind": book.source_kind.value,
+        "title": book.title,
+        "workflow_version": BOOK_WORKFLOW_VERSION,
+    }
+
+
+def store_book(book: Book, repository_root: str | Path) -> Path:
+    if book.source_kind is not SourceKind.BOOK:
+        raise ValueError("Book repository requires SourceKind.BOOK")
+    if book.source_format != "epub":
+        raise ValueError(f"Unsupported book source format: {book.source_format}")
+
+    _validate_path_component(book.collection, "Collection")
+    _validate_path_component(book.book_id, "Book ID")
+
+    source_bytes = book.original_source_path.read_bytes()
+    if hashlib.sha256(source_bytes).hexdigest() != book.content_hash:
+        raise ValueError("Original source no longer matches the acquired book")
+
+    working_bytes = render_book_markdown(book).encode("utf-8")
+    expected_metadata = _book_metadata(book)
+    book_directory = (
+        Path(repository_root).expanduser().resolve(strict=False)
+        / book.collection
+        / book.book_id
+    )
+
+    if book_directory.exists():
+        _validate_existing_entry(
+            book_directory,
+            "original.epub",
+            source_bytes,
+            working_bytes,
+            expected_metadata,
+        )
+        return book_directory
+
+    source_directory = book_directory / "source"
+    working_directory = book_directory / "working"
+    metadata_directory = book_directory / "metadata"
+    source_directory.mkdir(parents=True)
+    working_directory.mkdir()
+    metadata_directory.mkdir()
+
+    (source_directory / "original.epub").write_bytes(source_bytes)
+    (working_directory / "content.md").write_bytes(working_bytes)
+    (metadata_directory / "source.json").write_text(
+        json.dumps(expected_metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    return book_directory
